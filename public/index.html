@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Private Chat</title>
+  <link rel="stylesheet" href="/src/css/style.css" />
+</head>
+<body>
+<div id="authSection" class="container">
+  <h2>Login or Register</h2>
+  <input type="email" id="email" placeholder="Email" />
+  <input type="password" id="password" placeholder="Password" />
+  <input type="text" id="displayName" placeholder="Display Name (only for register)" />
+  <input type="file" id="profilePic" />
+  <div class="auth-buttons">
+    <button onclick="handleRegister()">Register</button>
+    <button onclick="handleLogin()">Login</button>
+  </div>
+</div>
+
+
+ <div id="chatSection" class="container" style="display: none;">
+  <!-- your existing chat UI -->
+   <button onclick="logout()">Logout</button>
+
+  <h1>Private Chat Room</h1>
+  <div id="chatBox"></div>
+  <div class="input-box">
+    <input type="text" id="messageInput" placeholder="Type your message..." />
+    <button onclick="handleSend()">Send</button>
+  </div>
+</div>
+
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js"></script>
+
+  <!-- Main App Script -->
+  <script type="module" src="/src/js/main.js"></script>
+
+</body>
+</html>
