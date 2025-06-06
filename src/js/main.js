@@ -141,10 +141,12 @@ function openRoomChat(roomId) {
     if (!text) return;
 
     await addDoc(collection(db, "rooms", roomId, "messages"), {
-      senderId: auth.currentUser.email,
-      text,
-      timestamp: serverTimestamp(),
-    });
+  senderId: auth.currentUser.uid,
+  senderName: auth.currentUser.displayName,
+  text,
+  timestamp: serverTimestamp(),
+});
+
 
     document.getElementById("messageInput").value = "";
   };
@@ -160,7 +162,7 @@ function openRoomChat(roomId) {
     snapshot.forEach((doc) => {
       const msg = doc.data();
       const div = document.createElement("div");
-      div.textContent = `${msg.senderId}: ${msg.text}`;
+      div.textContent = `${msg.senderName || "Unknown"}: ${msg.text}`;
       container.appendChild(div);
     });
   });
