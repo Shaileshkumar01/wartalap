@@ -1,11 +1,26 @@
 // src/js/main.js
+
 import { sendMessage, listenForMessages } from './chat.js';
 import { renderMessages } from './ui.js';
 import { register, login } from './auth.js';
-import { auth } from './firebaseConfig.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { auth, db } from './firebaseConfig.js';
 
-window.handleSend = handleSend;
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  updateDoc,
+  arrayUnion,
+  onSnapshot,
+  orderBy,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Register new user
 window.handleRegister = async function () {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
@@ -19,6 +34,7 @@ window.handleRegister = async function () {
   }
 };
 
+// Login existing user
 window.handleLogin = async function () {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
@@ -30,62 +46,122 @@ window.handleLogin = async function () {
   }
 };
 
+// Logout
+window.logout = function () {
+  signOut(auth);
+};
 
+// Auto-switch views based on auth state
 onAuthStateChanged(auth, (user) => {
   const authSection = document.getElementById("authSection");
   const chatSection = document.getElementById("chatSection");
 
   if (user) {
-    // Logged in
     authSection.style.display = "none";
     chatSection.style.display = "block";
-
-    const currentUserId = user.uid;
-    const partnerUserId = "YOUR_GF_FIREBASE_UID"; // You can hardcode this or set dynamically
-    const chatId = [currentUserId, partnerUserId].sort().join("_");
-
-    window.handleSend = function () {
-      const input = document.getElementById("messageInput");
-      const text = input.value.trim();
-      if (!text) return;
-      sendMessage(chatId, currentUserId, text);
-      input.value = "";
-    };
-
-    listenForMessages(chatId, (messages) => {
-      renderMessages(messages, currentUserId);
-    });
-
+    loadJoinedRooms();
   } else {
-    // Not logged in
     authSection.style.display = "block";
     chatSection.style.display = "none";
   }
 });
 
 
-// TEMP: Replace with actual Firebase authenticated user IDs
-const currentUserId = "user123";
-const partnerUserId = "user456";
+// Create new room
+window.createRoom = async function () {
+  const name = document.getElementById("roomNameInput").value.trim();
+  if (!name || !auth.currentUser) return;
 
-// Generate a consistent chatId (e.g., sorted UID pair)
-const chatId = [currentUserId, partnerUserId].sort().join("_");
+  try {
+    await addDoc(collection(db, "rooms"), {
+      name,
+      createdBy: auth.currentUser.uid,
+      members: [auth.currentUser.uid],
+    });
 
-function handleSend() {
-  const input = document.getElementById("messageInput");
-  const text = input.value.trim();
-  if (!text) return;
+    loadJoinedRooms();
+  } catch (err) {
+    alert("Error creating room: " + err.message);
+  }
+};
 
-  sendMessage(chatId, currentUserId, text);
-  input.value = "";
+// Join existing room
+window.joinRoom = async function () {
+  const name = document.getElementById("roomNameInput").value.trim();
+  if (!name || !auth.currentUser) return;
+
+  try {
+    const q = query(collection(db, "rooms"), where("name", "==", name));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const roomDoc = snapshot.docs[0];
+      const roomData = roomDoc.data();
+
+      if (!roomData.members.includes(auth.currentUser.uid)) {
+        await updateDoc(roomDoc.ref, {
+          members: arrayUnion(auth.currentUser.uid),
+        });
+      }
+
+      loadJoinedRooms();
+    } else {
+      alert("Room not found.");
+    }
+  } catch (err) {
+    alert("Error joining room: " + err.message);
+  }
+};
+
+// Load sidebar room list
+async function loadJoinedRooms() {
+  const userId = auth.currentUser?.uid;
+  if (!userId) return;
+
+  const q = query(collection(db, "rooms"), where("members", "array-contains", userId));
+  const snapshot = await getDocs(q);
+
+  const list = document.getElementById("roomList");
+  list.innerHTML = "";
+
+  snapshot.forEach(doc => {
+    const li = document.createElement("li");
+    li.textContent = doc.data().name;
+    li.onclick = () => openRoomChat(doc.id);
+    list.appendChild(li);
+  });
 }
 
-listenForMessages(chatId, (messages) => {
-  renderMessages(messages, currentUserId);
-});
+// Open chat window for selected room
+function openRoomChat(roomId) {
+  document.getElementById("chatSection").style.display = "block";
 
+  window.handleSend = async function () {
+    const text = document.getElementById("messageInput").value.trim();
+    if (!text) return;
 
-import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-window.logout = function () {
-  signOut(auth);
-};
+    await addDoc(collection(db, "rooms", roomId, "messages"), {
+      senderId: auth.currentUser.email,
+      text,
+      timestamp: serverTimestamp(),
+    });
+
+    document.getElementById("messageInput").value = "";
+  };
+
+  const q = query(
+    collection(db, "rooms", roomId, "messages"),
+    orderBy("timestamp")
+  );
+
+  onSnapshot(q, (snapshot) => {
+    const container = document.getElementById("messages");
+    container.innerHTML = "";
+    snapshot.forEach((doc) => {
+      const msg = doc.data();
+      const div = document.createElement("div");
+      div.textContent = `${msg.senderId}: ${msg.text}`;
+      container.appendChild(div);
+    });
+  });
+}
