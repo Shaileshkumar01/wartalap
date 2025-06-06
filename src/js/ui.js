@@ -1,4 +1,3 @@
-// src/js/ui.js
 export function renderMessages(messages, currentUserId) {
   const chatBox = document.getElementById("chatBox");
   chatBox.innerHTML = "";
@@ -6,7 +5,10 @@ export function renderMessages(messages, currentUserId) {
   messages.forEach(msg => {
     const msgDiv = document.createElement("div");
     msgDiv.className = "message";
-    msgDiv.textContent = (msg.senderId === currentUserId ? "You" : "Partner") + ": " + msg.text;
+    
+    const sender = msg.senderId === currentUserId ? "You" : msg.senderName || "Unknown";
+    msgDiv.textContent = `${sender}: ${msg.text}`;
+
     chatBox.appendChild(msgDiv);
   });
 
